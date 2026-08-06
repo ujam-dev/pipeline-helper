@@ -3,10 +3,8 @@ name: Smoke test images
 on:
   pull_request:
   push:
-    branches:
-      - main
-    tags:
-      - "v*"
+    tags-ignore:
+      - "*"
 
 permissions:
   contents: read
@@ -16,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           - dockerfile: Dockerfile.v1.0
@@ -50,15 +49,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          image_tag="smoke-$(basename "${{ matrix.dockerfile }}")-$(echo "${{ matrix.platform }}" | tr '/' '-')"
+          image_tag="smoke-$(basename "${{ matrix.dockerfile }}" | tr '[:upper:]' '[:lower:]')-$(echo "${{ matrix.platform }}" | tr '/' '-')"
           echo "IMAGE_TAG=${image_tag}" >> "$GITHUB_ENV"
 
-          docker buildx build \
-            --platform "${{ matrix.platform }}" \
-            --file "${{ matrix.dockerfile }}" \
-            --tag "${image_tag}" \
-            --load \
-            .
+          for attempt in 1 2 3; do
+            if docker buildx build \
+              --platform "${{ matrix.platform }}" \
+              --file "${{ matrix.dockerfile }}" \
+              --tag "${image_tag}" \
+              --load \
+              .; then
+              break
+            fi
+
+            if [[ "${attempt}" -eq 3 ]]; then
+              echo "Build failed after ${attempt} attempts"
+              exit 1
+            fi
+
+            sleep "$((attempt * 15))"
+          done
 
       - name: Assert tool versions
         shell: bash

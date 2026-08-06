@@ -85,6 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         platform:
           - linux/amd64
@@ -108,12 +109,23 @@ jobs:
           IMAGE_TAG="publish-smoke-$(echo "${{ matrix.platform }}" | tr '/' '-')"
           echo "IMAGE_TAG=${IMAGE_TAG}" >> "$GITHUB_ENV"
 
-          docker buildx build \
-            --platform "${{ matrix.platform }}" \
-            --file "${{ needs.prepare.outputs.dockerfile }}" \
-            --tag "${IMAGE_TAG}" \
-            --load \
-            .
+          for attempt in 1 2 3; do
+            if docker buildx build \
+              --platform "${{ matrix.platform }}" \
+              --file "${{ needs.prepare.outputs.dockerfile }}" \
+              --tag "${IMAGE_TAG}" \
+              --load \
+              .; then
+              break
+            fi
+
+            if [[ "${attempt}" -eq 3 ]]; then
+              echo "Build failed after ${attempt} attempts"
+              exit 1
+            fi
+
+            sleep "$((attempt * 15))"
+          done
 
       - name: Assert tool versions
         shell: bash

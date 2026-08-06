@@ -11,7 +11,8 @@ A pre-built Docker image containing essential DevOps tools for CI/CD pipelines. 
 - **AWS CLI** - Amazon Web Services command-line tools
 - **curl** - Data transfer tool
 - **jq** - JSON query processor
-- **wget, unzip** - File utilities
+- **git** - Source control tooling for commit metadata and scripting workflows
+- **wget, unzip, zip** - File utilities and archive packaging support
 
 ## Available Versions
 

@@ -7,6 +7,9 @@ and this project adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+- Added `git` and `zip` to both image variants for deployment and packaging workflows.
+
 ## [1.0.0] - 2026-08-06
 
 ### Added

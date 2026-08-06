@@ -16,10 +16,12 @@ COPY keys/aws-cli-team-public.gpg.asc /tmp/aws-cli-pgp.pub
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+  git \
     gnupg \
     jq \
     unzip \
     wget \
+  zip \
     && rm -rf /var/lib/apt/lists/*
 
 RUN case "${TARGETARCH}" in \

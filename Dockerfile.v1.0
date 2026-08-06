@@ -55,6 +55,9 @@ RUN case "${TARGETARCH}" in \
     rm -rf /tmp/aws /tmp/awscliv2.zip /tmp/awscliv2.zip.sig /tmp/aws-cli-pgp.pub "$GNUPGHOME" && \
     aws --version
 
+COPY helpers/send-slack /usr/local/bin/send-slack
+RUN chmod +x /usr/local/bin/send-slack
+
 WORKDIR /workspace
 
 CMD ["bash"]

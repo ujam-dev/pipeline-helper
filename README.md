@@ -13,6 +13,7 @@ A pre-built Docker image containing essential DevOps tools for CI/CD pipelines. 
 - **jq** - JSON query processor
 - **git** - Source control tooling for commit metadata and scripting workflows
 - **wget, unzip, zip** - File utilities and archive packaging support
+- **send-slack** - Built-in helper for posting messages to a Slack webhook
 
 ## Available Versions
 
@@ -187,6 +188,56 @@ docker buildx build --platform linux/arm64 -f Dockerfile.v1.0 -t pipeline-helper
 docker run --rm pipeline-helper:dev terraform --version
 docker run --rm pipeline-helper:dev aws --version
 docker run --rm pipeline-helper:dev jq --version
+```
+
+## Sending Slack Notifications
+
+The image ships `/usr/local/bin/send-slack` for posting pipeline notifications to Slack.
+
+### Requirements
+
+- Set `SLACK_WEBHOOK_URL` as a CI secret (Incoming Webhook URL from your Slack app).
+
+### Usage
+
+```bash
+send-slack -message ":rocket: Deployment of my-service to prod was successful!"
+```
+
+### Bitbucket Pipelines example
+
+```yaml
+image: ghcr.io/ujam-dev/pipeline-helper:v1.0
+
+pipelines:
+  branches:
+    main:
+      - step:
+          name: Deploy
+          script:
+            - # ... your deploy steps ...
+            - |
+              send-slack -message ":rocket: *${BITBUCKET_REPO_SLUG}* deployed to prod.
+              Commit: <https://bitbucket.org/${BITBUCKET_WORKSPACE}/${BITBUCKET_REPO_SLUG}/commits/${BITBUCKET_COMMIT}|${BITBUCKET_COMMIT:0:7}>"
+```
+
+### GitHub Actions example
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/ujam-dev/pipeline-helper:v1.0
+    env:
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    steps:
+      - name: Deploy
+        run: | # ... your deploy steps ...
+      - name: Notify Slack
+        run: |
+          send-slack -message ":rocket: *${{ github.repository }}* deployed to prod.
+          Commit: <https://github.com/${{ github.repository }}/commit/${{ github.sha }}|${GITHUB_SHA:0:7}>"
 ```
 
 ## Troubleshooting

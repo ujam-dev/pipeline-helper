@@ -7,8 +7,10 @@ and this project adheres to Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-06
+
 ### Added
-- Added `git` and `zip` to both image variants for deployment and packaging workflows.
+- Added `send-slack` helper script at `/usr/local/bin/send-slack` for posting Slack notifications from pipeline steps.
 
 ## [1.0.0] - 2026-08-06
 
@@ -17,5 +19,5 @@ and this project adheres to Semantic Versioning.
 - Node.js 24 base runtime.
 - Terraform 1.14.5.
 - AWS CLI 2.13.x line.
-- Common utilities: curl, jq, wget, unzip.
+- Common utilities: curl, git, jq, unzip, wget, zip.
 - GitHub Actions workflow for publishing tagged releases to GHCR.

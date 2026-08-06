@@ -1,0 +1,28 @@
+#!/bin/bash
+
+set -eo pipefail
+
+usage() {
+  echo "Usage: $0 -message <text>"
+  echo "  SLACK_WEBHOOK_URL must be set in the environment."
+  exit 1
+}
+
+MESSAGE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -message) MESSAGE="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+
+[[ -z "$MESSAGE" ]] && usage
+
+if [[ -z "$SLACK_WEBHOOK_URL" ]]; then
+  echo "Error: SLACK_WEBHOOK_URL is not set" >&2
+  exit 1
+fi
+
+# jq is available in the pipeline-helper image and handles all JSON escaping correctly.
+payload=$(jq -nc --arg text "$MESSAGE" '{text: $text}')
+curl -fsSL -X POST -H 'Content-Type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL" >/dev/null

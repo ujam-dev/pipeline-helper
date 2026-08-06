@@ -50,7 +50,7 @@ jobs:
             VERSION="${GITHUB_REF_NAME}"
             DOCKERFILE="Dockerfile.${VERSION}"
             if [[ ! -f "${DOCKERFILE}" ]]; then
-              MAJOR_MINOR="$(echo "${VERSION}" | sed -E 's/^v([0-9]+\.[0-9]+).*/\1/')"
+              MAJOR_MINOR="$(echo "${VERSION}" | sed -E 's/^(v[0-9]+\.[0-9]+).*/\1/')"
               DOCKERFILE="Dockerfile.${MAJOR_MINOR}"
             fi
           fi

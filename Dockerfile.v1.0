@@ -1,0 +1,37 @@
+FROM node:24-bookworm-slim
+
+ARG TERRAFORM_VERSION=1.14.5
+ARG AWS_CLI_VERSION=2.13.38
+
+LABEL org.opencontainers.image.title="pipeline-helper" \
+      org.opencontainers.image.description="Shared CI/CD helper image with Node.js, Terraform and AWS CLI" \
+      org.opencontainers.image.source="https://github.com/ujam-dev/pipeline-helper"
+
+# Install core tooling dependencies and common CLI utilities.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gnupg \
+    jq \
+    unzip \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Terraform from official HashiCorp release archives.
+RUN ARCH="amd64" && \
+    wget -q "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${ARCH}.zip" -O /tmp/terraform.zip && \
+    unzip /tmp/terraform.zip -d /usr/local/bin && \
+    rm /tmp/terraform.zip && \
+    terraform -version
+
+# Install AWS CLI v2 from official AWS bundled installer.
+RUN ARCH="x86_64" && \
+    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}-${AWS_CLI_VERSION}.zip" -o /tmp/awscliv2.zip && \
+    unzip -q /tmp/awscliv2.zip -d /tmp && \
+    /tmp/aws/install && \
+    rm -rf /tmp/aws /tmp/awscliv2.zip && \
+    aws --version
+
+WORKDIR /workspace
+
+CMD ["bash"]

@@ -1,0 +1,90 @@
+name: Publish pipeline-helper image
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Image version (example: v1.0)"
+        required: true
+        default: "v1.0"
+      dockerfile:
+        description: "Dockerfile to build"
+        required: true
+        default: "Dockerfile.v1.0"
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ujam-dev/pipeline-helper
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Derive build config
+        id: cfg
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+            DOCKERFILE="${{ github.event.inputs.dockerfile }}"
+          else
+            VERSION="${GITHUB_REF_NAME}"
+            DOCKERFILE="Dockerfile.${VERSION}"
+            if [[ ! -f "${DOCKERFILE}" ]]; then
+              MAJOR_MINOR="$(echo "${VERSION}" | sed -E 's/^v([0-9]+\.[0-9]+).*/\1/')"
+              DOCKERFILE="Dockerfile.${MAJOR_MINOR}"
+            fi
+          fi
+
+          if [[ ! -f "${DOCKERFILE}" ]]; then
+            echo "No Dockerfile found for ${VERSION}. Expected ${DOCKERFILE}."
+            exit 1
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "dockerfile=${DOCKERFILE}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.cfg.outputs.version }}
+            type=raw,value=latest,enable=${{ startsWith(steps.cfg.outputs.version, 'v') }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ steps.cfg.outputs.dockerfile }}
+          push: true
+          platforms: linux/amd64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

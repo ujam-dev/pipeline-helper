@@ -1,0 +1,71 @@
+name: Smoke test images
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: Dockerfile.v1.0
+            platform: linux/amd64
+            terraform: 1.14.5
+            aws_prefix: 2.13.
+          - dockerfile: Dockerfile.v1.0
+            platform: linux/arm64
+            terraform: 1.14.5
+            aws_prefix: 2.13.
+          - dockerfile: Dockerfile.v2.0
+            platform: linux/amd64
+            terraform: 1.15.0
+            aws_prefix: 2.15.
+          - dockerfile: Dockerfile.v2.0
+            platform: linux/arm64
+            terraform: 1.15.0
+            aws_prefix: 2.15.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build test image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          image_tag="smoke-$(basename "${{ matrix.dockerfile }}")-$(echo "${{ matrix.platform }}" | tr '/' '-')"
+          echo "IMAGE_TAG=${image_tag}" >> "$GITHUB_ENV"
+
+          docker buildx build \
+            --platform "${{ matrix.platform }}" \
+            --file "${{ matrix.dockerfile }}" \
+            --tag "${image_tag}" \
+            --load \
+            .
+
+      - name: Assert tool versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker run --rm "${IMAGE_TAG}" sh -lc "node -v | grep -Eq '^v24\\.'"
+          docker run --rm "${IMAGE_TAG}" sh -lc "terraform -version | head -n1 | grep -F 'Terraform v${{ matrix.terraform }}'"
+          docker run --rm "${IMAGE_TAG}" sh -lc "aws --version | grep -E 'aws-cli/${{ matrix.aws_prefix }}[0-9]+'"
+          docker run --rm "${IMAGE_TAG}" sh -lc "jq --version | grep -E '^jq-[0-9]+'"

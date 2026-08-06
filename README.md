@@ -24,6 +24,12 @@ A pre-built Docker image containing essential DevOps tools for CI/CD pipelines. 
 
 ## Quick Start
 
+### Architecture Support
+
+- Published images include both `linux/amd64` and `linux/arm64` variants.
+- On Intel/AMD Linux runners (for example GitHub-hosted Ubuntu), Docker pulls `linux/amd64` automatically.
+- On Apple Silicon hosts (M1/M2), Docker pulls `linux/arm64` automatically.
+
 ### Use in Your Pipeline
 
 **Bitbucket Pipelines:**
@@ -63,12 +69,28 @@ This image is public and can be pulled by any CI/CD pipeline without credentials
 pipeline-helper/
 ├── Dockerfile.v1.0           # Base image v1.0
 ├── Dockerfile.v2.0           # Base image v2.0 (future)
+├── keys/
+│   └── aws-cli-team-public.gpg.asc # AWS CLI signing key used for verification
 ├── .github/
 │   └── workflows/
-│       └── publish.yml       # GitHub Actions: build & publish
+│       ├── smoke-test.yml    # CI smoke tests across amd64/arm64 and tool versions
+│       ├── publish.yml       # GitHub Actions: build & publish
+│       └── enforce-pinned-actions.yml # CI check: require SHA-pinned actions
 ├── README.md                 # This file
 └── CHANGELOG.md              # Version history
 ```
+
+## Supply-Chain Security
+
+This repository includes multiple hardening controls to reduce supply-chain risk:
+
+- **Pinned base image digest**: Dockerfiles use immutable `FROM ...@sha256:` references.
+- **Terraform integrity verification**: downloaded Terraform archives are verified with published SHA256 checksums before installation.
+- **AWS CLI authenticity verification**: AWS CLI archives are verified with AWS's published PGP signature and trusted fingerprint.
+- **Pinned GitHub Actions**: third-party actions in workflows are pinned to full commit SHAs (not floating tags).
+- **Policy enforcement in CI**: `.github/workflows/enforce-pinned-actions.yml` fails if a workflow introduces unpinned actions.
+- **Build provenance and SBOM**: publish workflow emits provenance attestations and SBOM metadata.
+- **Pre-publish smoke tests**: `.github/workflows/smoke-test.yml` builds both image variants on `linux/amd64` and `linux/arm64` and validates Node.js, Terraform, AWS CLI, and `jq` versions.
 
 ## Publishing a New Version
 
@@ -94,6 +116,7 @@ git push origin v2.0
 
 The `.github/workflows/publish.yml` workflow will:
 - Detect the tag
+- Run smoke tests for `linux/amd64` and `linux/arm64` (Node.js, Terraform, AWS CLI, and `jq` version checks)
 - Build the image
 - Push to `ghcr.io/ujam-dev/pipeline-helper:v2.0`
 - Push to `ghcr.io/ujam-dev/pipeline-helper:latest`
@@ -145,6 +168,16 @@ To add new tools to the image:
 
 ```bash
 docker build -f Dockerfile.v1.0 -t pipeline-helper:dev .
+```
+
+Force a specific architecture when needed:
+
+```bash
+# Build amd64 image (useful on Apple Silicon for compatibility testing)
+docker buildx build --platform linux/amd64 -f Dockerfile.v1.0 -t pipeline-helper:dev-amd64 .
+
+# Build arm64 image
+docker buildx build --platform linux/arm64 -f Dockerfile.v1.0 -t pipeline-helper:dev-arm64 .
 ```
 
 ### Test the Image

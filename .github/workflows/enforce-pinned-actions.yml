@@ -1,0 +1,69 @@
+name: Enforce pinned GitHub Actions
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/*.yml"
+      - ".github/workflows/*.yaml"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/*.yml"
+      - ".github/workflows/*.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Validate action pinning
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          failed=0
+
+          mapfile -t matches < <(grep -RInE '^[[:space:]]*uses:[[:space:]]*' .github/workflows/*.y*ml || true)
+
+          for match in "${matches[@]}"; do
+            file="${match%%:*}"
+            rest="${match#*:}"
+            line_no="${rest%%:*}"
+            line="${rest#*:}"
+
+            ref="$(echo "${line}" | sed -E 's/^[[:space:]]*uses:[[:space:]]*//; s/[[:space:]]+#.*$//; s/^["'"'"']|["'"'"']$//g')"
+
+            if [[ "${ref}" == ./* ]]; then
+              continue
+            fi
+
+            if [[ "${ref}" == docker://* ]]; then
+              if [[ "${ref}" =~ @sha256:[a-f0-9]{64}$ ]]; then
+                continue
+              fi
+              echo "Unpinned docker image reference: ${file}:${line_no} -> ${ref}"
+              failed=1
+              continue
+            fi
+
+            if [[ "${ref}" =~ ^[^@]+@[0-9a-fA-F]{40}$ ]]; then
+              continue
+            fi
+
+            echo "Unpinned action reference: ${file}:${line_no} -> ${ref}"
+            failed=1
+          done
+
+          if [[ ${failed} -ne 0 ]]; then
+            echo "Found unpinned GitHub Actions references. Pin third-party actions to full commit SHAs."
+            exit 1
+          fi
+
+          echo "All action references are pinned to immutable SHAs."

@@ -1,11 +1,17 @@
-FROM node:24-bookworm-slim
+FROM node:24-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03
 
 ARG TERRAFORM_VERSION=1.14.5
+ARG TERRAFORM_SHA256_AMD64=ac21c2b9dcd115711f540cbd27ead0596bb4288a917cb56dfa9b25edb3eb6280
+ARG TERRAFORM_SHA256_ARM64=7dbd03721e8f933ba0426fc292d7a6549a61c0cb1c7c821729f6982c7bce4b05
 ARG AWS_CLI_VERSION=2.13.38
+ARG AWS_CLI_PGP_FINGERPRINT=FB5DB77FD5C118B80511ADA8A6310ACC4672475C
+ARG TARGETARCH
 
 LABEL org.opencontainers.image.title="pipeline-helper" \
       org.opencontainers.image.description="Shared CI/CD helper image with Node.js, Terraform and AWS CLI" \
       org.opencontainers.image.source="https://github.com/ujam-dev/pipeline-helper"
+
+COPY keys/aws-cli-team-public.gpg.asc /tmp/aws-cli-pgp.pub
 
 # Install core tooling dependencies and common CLI utilities.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -18,18 +24,33 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Terraform from official HashiCorp release archives.
-RUN ARCH="amd64" && \
-    wget -q "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${ARCH}.zip" -O /tmp/terraform.zip && \
+RUN case "${TARGETARCH}" in \
+      amd64) TF_ARCH="amd64"; TF_SHA256="${TERRAFORM_SHA256_AMD64}" ;; \
+      arm64) TF_ARCH="arm64"; TF_SHA256="${TERRAFORM_SHA256_ARM64}" ;; \
+      *) echo "Unsupported TARGETARCH: ${TARGETARCH}"; exit 1 ;; \
+    esac && \
+    wget -q "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${TF_ARCH}.zip" -O /tmp/terraform.zip && \
+    echo "${TF_SHA256}  /tmp/terraform.zip" | sha256sum -c - && \
     unzip /tmp/terraform.zip -d /usr/local/bin && \
     rm /tmp/terraform.zip && \
     terraform -version
 
 # Install AWS CLI v2 from official AWS bundled installer.
-RUN ARCH="x86_64" && \
-    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${ARCH}-${AWS_CLI_VERSION}.zip" -o /tmp/awscliv2.zip && \
+RUN case "${TARGETARCH}" in \
+      amd64) AWS_ARCH="x86_64" ;; \
+      arm64) AWS_ARCH="aarch64" ;; \
+      *) echo "Unsupported TARGETARCH: ${TARGETARCH}"; exit 1 ;; \
+    esac && \
+    export GNUPGHOME="$(mktemp -d)" && \
+    gpg --batch --import /tmp/aws-cli-pgp.pub && \
+    FPR="$(gpg --batch --with-colons --fingerprint A6310ACC4672475C | awk -F: '/^fpr:/ {print $10; exit}')" && \
+    test "${FPR}" = "${AWS_CLI_PGP_FINGERPRINT}" && \
+    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}-${AWS_CLI_VERSION}.zip" -o /tmp/awscliv2.zip && \
+    curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}-${AWS_CLI_VERSION}.zip.sig" -o /tmp/awscliv2.zip.sig && \
+    gpg --batch --verify /tmp/awscliv2.zip.sig /tmp/awscliv2.zip && \
     unzip -q /tmp/awscliv2.zip -d /tmp && \
     /tmp/aws/install && \
-    rm -rf /tmp/aws /tmp/awscliv2.zip && \
+    rm -rf /tmp/aws /tmp/awscliv2.zip /tmp/awscliv2.zip.sig /tmp/aws-cli-pgp.pub "$GNUPGHOME" && \
     aws --version
 
 WORKDIR /workspace

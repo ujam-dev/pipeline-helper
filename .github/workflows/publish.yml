@@ -136,6 +136,8 @@ jobs:
           docker run --rm "${IMAGE_TAG}" sh -lc "terraform -version | head -n1 | grep -F 'Terraform v${{ needs.prepare.outputs.terraform }}'"
           docker run --rm "${IMAGE_TAG}" sh -lc "aws --version | grep -E 'aws-cli/${{ needs.prepare.outputs.aws_prefix }}[0-9]+'"
           docker run --rm "${IMAGE_TAG}" sh -lc "jq --version | grep -E '^jq-[0-9]+'"
+          docker run --rm "${IMAGE_TAG}" sh -lc "git --version | grep -E '^git version [0-9]+'"
+          docker run --rm "${IMAGE_TAG}" sh -lc "docker --version | grep -E '^Docker version [0-9]+'"
 
   publish:
     needs:

@@ -9,6 +9,7 @@ A pre-built Docker image containing essential DevOps tools for CI/CD pipelines. 
 - **Node.js 24** - JavaScript runtime
 - **Terraform** - Infrastructure as Code
 - **AWS CLI** - Amazon Web Services command-line tools
+- **Docker CLI** - Docker client for connecting to a mounted host socket
 - **curl** - Data transfer tool
 - **jq** - JSON query processor
 - **git** - Source control tooling for commit metadata and scripting workflows
@@ -188,6 +189,14 @@ docker buildx build --platform linux/arm64 -f Dockerfile.v1.0 -t pipeline-helper
 docker run --rm pipeline-helper:dev terraform --version
 docker run --rm pipeline-helper:dev aws --version
 docker run --rm pipeline-helper:dev jq --version
+```
+
+To run Docker commands against the host daemon, mount its socket:
+
+```bash
+docker run --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  pipeline-helper:dev docker version
 ```
 
 ## Sending Slack Notifications

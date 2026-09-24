@@ -16,6 +16,7 @@ COPY keys/aws-cli-team-public.gpg.asc /tmp/aws-cli-pgp.pub
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    docker.io \
   git \
     gnupg \
     jq \
